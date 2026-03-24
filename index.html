@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Deutsch Karten">
+<meta name="theme-color" content="#F7F4EE">
+<title>Deutsch Karten</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=JetBrains+Mono:wght@400;500&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0F1009;--paper:#F7F4EE;--surface:#FFFFFF;
+  --muted:#8A8778;--faint:#E8E4DA;
+  --accent:#2D6A4F;--accent-pale:#D8EDE3;
+  --warn:#B5451B;--warn-pale:#F5E0D8;
+  --gold:#A07830;--gold-pale:#F0E8D4;
+  --blue:#1E4D7A;--blue-pale:#D8E8F4;
+  --border:rgba(15,16,9,0.09);--radius:14px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;}
+body{font-family:'Figtree',sans-serif;background:var(--paper);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:calc(var(--safe-top) + 0px) 16px calc(var(--safe-bottom) + 40px);color:var(--ink);-webkit-tap-highlight-color:transparent;}
+header{width:100%;max-width:600px;padding:22px 0 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border);margin-bottom:16px;}
+.wordmark{font-family:'Playfair Display',serif;font-size:19px;font-weight:500;letter-spacing:-.3px;}
+.wordmark em{font-style:italic;color:var(--accent);}
+.timer-wrap{display:flex;align-items:center;gap:8px;}
+.timer-meta{text-align:right;}
+.session-pill{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:block;margin-bottom:1px;}
+.streak-badge{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);display:block;}
+.timer-ring-container{position:relative;width:44px;height:44px;cursor:pointer;}
+.timer-ring-container svg{transform:rotate(-90deg);}
+circle.track{fill:none;stroke:var(--faint);stroke-width:3;}
+circle.fill{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .3s;}
+circle.fill.urgent{stroke:var(--warn);}
+.timer-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--ink);}
+.filters{width:100%;max-width:600px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.filter-btn{font-family:'Figtree',sans-serif;font-size:12px;font-weight:500;padding:5px 12px;border-radius:20px;border:.5px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.filter-btn.on-all{background:var(--ink);color:#fff;border-color:var(--ink);}
+.filter-btn.on-everyday{background:var(--accent-pale);color:var(--accent);border-color:var(--accent);}
+.filter-btn.on-work{background:var(--blue-pale);color:var(--blue);border-color:var(--blue);}
+.filter-btn.on-admin{background:var(--gold-pale);color:var(--gold);border-color:var(--gold);}
+.filter-btn.on-grammar{background:var(--warn-pale);color:var(--warn);border-color:var(--warn);}
+.focus-bar{width:100%;max-width:600px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;min-height:22px;}
+.focus-chip{display:inline-flex;align-items:center;font-size:10.5px;border-radius:20px;padding:2px 9px;font-family:'JetBrains Mono',monospace;}
+.chip-weak{background:var(--warn-pale);color:var(--warn);border:.5px solid rgba(181,69,27,.2);}
+.chip-new{background:var(--blue-pale);color:var(--blue);border:.5px solid rgba(30,77,122,.2);}
+.progress-wrap{width:100%;max-width:600px;margin-bottom:16px;}
+.progress-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.progress-track{height:2px;background:var(--faint);border-radius:2px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear;}
+.scene{width:100%;max-width:600px;height:270px;perspective:1400px;cursor:pointer;margin-bottom:16px;}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.4,0,.2,1);}
+.card-inner.flipped{transform:rotateY(180deg);}
+.face{position:absolute;inset:0;border-radius:var(--radius);backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px 28px;user-select:none;}
+.face-front{background:var(--ink);color:#fff;box-shadow:0 12px 48px rgba(15,16,9,.22),0 2px 8px rgba(15,16,9,.12);}
+.face-back{background:var(--surface);color:var(--ink);transform:rotateY(180deg);border:.5px solid var(--border);box-shadow:0 4px 24px rgba(15,16,9,.08);}
+.face-corner{position:absolute;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;opacity:.35;}
+.face-corner.tl{top:13px;left:14px;}.face-corner.tr{top:13px;right:14px;}
+.card-article-label{font-family:'JetBrains Mono',monospace;font-size:11px;opacity:.45;margin-bottom:3px;letter-spacing:.06em;}
+.card-word{font-family:'Playfair Display',serif;font-size:clamp(22px,6vw,34px);font-weight:500;text-align:center;line-height:1.2;margin-bottom:9px;}
+.card-example{font-size:12.5px;text-align:center;line-height:1.6;font-style:italic;max-width:400px;}
+.face-front .card-example{color:rgba(255,255,255,.38);}
+.face-back .card-example{color:var(--muted);}
+.tap-hint{position:absolute;bottom:11px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;opacity:.22;}
+.cat-dot{position:absolute;bottom:11px;right:14px;width:7px;height:7px;border-radius:50%;}
+.dot-everyday{background:var(--accent);}.dot-work{background:var(--blue);}.dot-admin{background:var(--gold);}.dot-grammar{background:var(--warn);}
+.card-loading{display:flex;flex-direction:column;align-items:center;gap:11px;}
+.skel{background:rgba(255,255,255,.12);border-radius:6px;animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+.skel-word{width:190px;height:32px;}.skel-ex{width:280px;height:12px;}.skel-ex2{width:220px;height:12px;}
+.controls{width:100%;max-width:600px;display:flex;gap:9px;margin-bottom:18px;}
+.btn{font-family:'Figtree',sans-serif;font-size:13px;font-weight:500;padding:13px 18px;border-radius:10px;border:none;cursor:pointer;transition:all .14s;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent;}
+.btn-flip{flex:1;background:var(--surface);color:var(--ink);border:.5px solid var(--border);}
+.btn-flip:active{background:var(--faint);}
+.btn-flip:disabled{opacity:.4;cursor:not-allowed;}
+.btn-again{background:var(--warn-pale);color:var(--warn);border:.5px solid rgba(181,69,27,.18);min-width:82px;}
+.btn-again:active{background:#eecfc4;}
+.btn-good{flex:1;background:var(--accent);color:#fff;}
+.btn-good:active{background:#245c43;}
+.btn-easy{background:var(--accent-pale);color:var(--accent);border:.5px solid rgba(45,106,79,.18);min-width:72px;}
+.btn-easy:active{background:#c4deca;}
+.stats{width:100%;max-width:600px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.stat-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:11px;text-align:center;}
+.stat-value{display:block;font-family:'Playfair Display',serif;font-size:22px;font-weight:500;line-height:1;margin-bottom:3px;}
+.stat-label{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;}
+.session-overlay{position:fixed;inset:0;background:rgba(247,244,238,.97);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .5s ease;padding:20px;}
+.session-overlay.visible{opacity:1;pointer-events:all;}
+.session-card{background:var(--surface);border:.5px solid var(--border);border-radius:20px;padding:36px 28px;max-width:480px;width:100%;box-shadow:0 16px 64px rgba(15,16,9,.12);text-align:center;}
+.session-card h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:500;margin-bottom:3px;}
+.session-card .sub{font-size:12px;color:var(--muted);margin-bottom:22px;font-family:'JetBrains Mono',monospace;}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:18px;}
+.sum-cell{background:var(--paper);border-radius:10px;padding:12px 6px;}
+.sum-value{font-family:'Playfair Display',serif;font-size:24px;font-weight:500;display:block;line-height:1;margin-bottom:3px;}
+.sum-label{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;}
+.tomorrow-box{background:var(--accent-pale);border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:18px;}
+.tomorrow-box h4{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.07em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
+.tomorrow-box ul{list-style:none;display:flex;flex-direction:column;gap:6px;}
+.tomorrow-box li{font-size:13px;color:var(--ink);display:flex;align-items:flex-start;gap:7px;line-height:1.4;}
+.tomorrow-box li::before{content:'→';color:var(--accent);flex-shrink:0;}
+.btn-tomorrow{font-family:'Figtree',sans-serif;font-size:14px;font-weight:500;padding:14px 32px;border-radius:10px;border:none;background:var(--ink);color:#fff;cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent;}
+.btn-tomorrow:active{opacity:.82;}
+.error-card{width:100%;max-width:600px;background:var(--warn-pale);border:.5px solid rgba(181,69,27,.25);border-radius:var(--radius);padding:13px 16px;font-size:13px;color:var(--warn);line-height:1.6;margin-bottom:13px;}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:0;position:fixed;top:calc(var(--safe-top) + 14px);right:16px;transition:opacity .4s;}
+.sync-dot.show{opacity:1;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="session-overlay" id="session-overlay">
+  <div class="session-card">
+    <h2>Session complete ✓</h2>
+    <p class="sub" id="ov-sub">15 minutes done.</p>
+    <div class="summary-grid">
+      <div class="sum-cell"><span class="sum-value" id="ov-seen">0</span><span class="sum-label">Cards</span></div>
+      <div class="sum-cell"><span class="sum-value" id="ov-pct">—</span><span class="sum-label">Correct</span></div>
+      <div class="sum-cell"><span class="sum-value" id="ov-streak">0</span><span class="sum-label">Best streak</span></div>
+    </div>
+    <div class="tomorrow-box">
+      <h4>Tomorrow's focus</h4>
+      <ul id="ov-tomorrow"></ul>
+    </div>
+    <button class="btn-tomorrow" onclick="startNewSession()">Start new session</button>
+  </div>
+</div>
+
+<div class="sync-dot" id="sync-dot"></div>
+
+<header>
+  <div class="wordmark">Deutsch <em>Karten</em></div>
+  <div class="timer-wrap">
+    <div class="timer-meta">
+      <span class="session-pill" id="session-pill">A2 · Day 1</span>
+      <span class="streak-badge" id="streak-badge"></span>
+    </div>
+    <div class="timer-ring-container" onclick="togglePause()">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle class="track" cx="22" cy="22" r="18"/>
+        <circle class="fill" id="timer-ring" cx="22" cy="22" r="18" stroke-dasharray="113.1" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-text" id="timer-display">15:00</div>
+    </div>
+  </div>
+</header>
+
+<div class="filters">
+  <button class="filter-btn on-all" data-cat="all"      onclick="setFilter('all')">All</button>
+  <button class="filter-btn"        data-cat="everyday" onclick="setFilter('everyday')">🏠 Daily</button>
+  <button class="filter-btn"        data-cat="work"     onclick="setFilter('work')">💼 Work</button>
+  <button class="filter-btn"        data-cat="admin"    onclick="setFilter('admin')">📋 Admin</button>
+  <button class="filter-btn"        data-cat="grammar"  onclick="setFilter('grammar')">📐 Grammar</button>
+</div>
+
+<div class="focus-bar" id="focus-bar"></div>
+
+<div class="progress-wrap">
+  <div class="progress-meta">
+    <span id="prog-label">Loading…</span>
+    <span id="prog-score">time remaining</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:100%"></div></div>
+</div>
+
+<div class="scene" onclick="flipCard()">
+  <div class="card-inner" id="card-inner">
+    <div class="face face-front">
+      <div class="face-corner tl" id="cat-tag">—</div>
+      <div class="face-corner tr" id="dir-front">DE</div>
+      <div class="card-loading" id="loading-front">
+        <div class="skel skel-word"></div><div class="skel skel-ex"></div><div class="skel skel-ex2"></div>
+      </div>
+      <div id="front-content" class="hidden" style="display:flex;flex-direction:column;align-items:center;">
+        <div class="card-article-label" id="front-article"></div>
+        <div class="card-word" id="front-word"></div>
+        <div class="card-example" id="front-ex"></div>
+      </div>
+      <div class="tap-hint" id="tap-hint">tap to reveal</div>
+      <div class="cat-dot" id="cat-dot"></div>
+    </div>
+    <div class="face face-back">
+      <div class="face-corner tl" id="cat-tag-back">—</div>
+      <div class="face-corner tr" id="dir-back">EN</div>
+      <div class="card-word" id="back-word"></div>
+      <div class="card-example" id="back-ex"></div>
+      <div class="tap-hint">how did you do?</div>
+    </div>
+  </div>
+</div>
+
+<div id="error-wrap"></div>
+
+<div class="controls" id="ctrl-pre">
+  <button class="btn btn-flip" id="btn-flip" onclick="flipCard()" disabled>Loading…</button>
+</div>
+<div class="controls hidden" id="ctrl-post">
+  <button class="btn btn-again" onclick="rate('again')">Again</button>
+  <button class="btn btn-good"  onclick="rate('good')">✓ Got it</button>
+  <button class="btn btn-easy"  onclick="rate('easy')">Easy ✦</button>
+</div>
+
+<div class="stats">
+  <div class="stat-card"><span class="stat-value" id="s-seen">0</span><span class="stat-label">Seen</span></div>
+  <div class="stat-card"><span class="stat-value" id="s-good">0</span><span class="stat-label">Correct</span></div>
+  <div class="stat-card"><span class="stat-value" id="s-again">0</span><span class="stat-label">Again</span></div>
+  <div class="stat-card"><span class="stat-value" id="s-streak">0</span><span class="stat-label">Streak</span></div>
+</div>
+
+<script>
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+const SK='dk_v2';
+function loadState(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch{return{};}}
+let S=Object.assign({weakness:{},globalHistory:[],sessionLog:[],dayStreak:0,sessionN:1},loadState());
+function persist(){
+  localStorage.setItem(SK,JSON.stringify(S));
+  const d=document.getElementById('sync-dot');
+  d.classList.add('show');setTimeout(()=>d.classList.remove('show'),1200);
+}
+
+// ─── CURRICULUM ───────────────────────────────────────────────────────────────
+const CURRICULUM=[
+  'greetings & introductions','numbers & dates','colours & descriptions',
+  'food & drink vocabulary','supermarket & shopping','public transport Berlin',
+  'directions & navigation','weather vocabulary','home & furniture',
+  'recycling & waste sorting','neighbourhood & city','clothing & shopping',
+  'health & body parts','leisure & hobbies','Berlin landmarks',
+  'office equipment & space','meetings & scheduling','email phrases',
+  'tasks & deadlines','feedback & reviews','colleagues & hierarchy',
+  'work from home','professional introductions','company structure',
+  'Anmeldung & registration','residence permit vocabulary','banking & accounts',
+  'health insurance terms','tax & payslip vocabulary','forms & applications',
+  'appointments & scheduling','post & parcels','contracts & documents',
+  'phone & official calls',
+  'definite & indefinite articles','nominative case','accusative case',
+  'dative case','dative prepositions','accusative prepositions','two-way prepositions',
+  'modal verbs present','modal verbs past','separable verbs',
+  'reflexive verbs','Perfekt past tense','Präteritum modal verbs',
+  'subordinate clauses with weil','subordinate clauses with dass',
+  'subordinate clauses with obwohl','subordinate clauses with wenn',
+  'Konjunktiv II polite forms','future with werden','comparative & superlative',
+  'adjective endings nominative','adjective endings accusative','adjective endings dative',
+  'seit + dative time','wegen + genitive','infinitive with zu',
+];
+function getWeak(){return Object.entries(S.weakness).filter(([,v])=>v.again>0).sort((a,b)=>(b[1].again/Math.max(1,b[1].good+b[1].again))-(a[1].again/Math.max(1,a[1].good+a[1].again))).slice(0,4).map(([k])=>k);}
+function getUnseen(){const s=new Set(S.globalHistory);return CURRICULUM.filter(t=>!s.has(t));}
+function getTomorrowPlan(){
+  const w=getWeak(),u=getUnseen().slice(0,3),l=[];
+  if(w.length) l.push(`Review: ${w.slice(0,2).join(', ')}`);
+  if(u.length) l.push(`New: ${u.slice(0,2).join(', ')}`);
+  if(!l.length) l.push('Excellent — keep going!');
+  return l;
+}
+
+// ─── TIMER ───────────────────────────────────────────────────────────────────
+const SECS=15*60,CIRC=2*Math.PI*18;
+let tSecs=SECS,tRunning=false,tPaused=false,tInterval=null;
+function startTimer(){
+  if(tRunning)return; tRunning=true;
+  tInterval=setInterval(()=>{
+    if(tPaused)return;
+    tSecs=Math.max(0,tSecs-1); updateTimer();
+    if(tSecs<=0){clearInterval(tInterval);tRunning=false;endSession();}
+  },1000);
+}
+function togglePause(){
+  if(!tRunning)return; tPaused=!tPaused;
+  const el=document.getElementById('timer-display');
+  el.style.opacity=tPaused?'.35':'1';
+  if(tPaused)el.textContent='⏸'; else updateTimer();
+}
+function fmt(s){return`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;}
+function updateTimer(){
+  document.getElementById('timer-display').textContent=fmt(tSecs);
+  const f=tSecs/SECS;
+  document.getElementById('timer-ring').style.strokeDashoffset=CIRC*(1-f);
+  document.getElementById('timer-ring').classList.toggle('urgent',tSecs<=60);
+  document.getElementById('prog-fill').style.width=(f*100).toFixed(1)+'%';
+}
+
+// ─── SESSION STATE ────────────────────────────────────────────────────────────
+let filter='all',card=null,flipped=false,nextP=null;
+const recent=[],seenThisSession=[];
+const st={seen:0,good:0,easy:0,again:0,streak:0};
+let best=0;
+const TODAY=new Date().toISOString().slice(0,10);
+
+// ─── PROMPT ───────────────────────────────────────────────────────────────────
+function buildPrompt(f){
+  const w=getWeak(),u=getUnseen(),av=recent.slice(-6);
+  const dir=Math.random()>.5?'de-en':'en-de';
+  let focus;
+  if(f!=='all'){
+    const m={everyday:'everyday vocab — Berlin life, transport, food, home',work:'work & office — Delivery Hero, meetings, tasks, email',admin:'bureaucracy & admin — Amt, residence permit, Anmeldung, banking',grammar:'A2 grammar — modal verbs, subordinate clauses, cases, prepositions'};
+    focus=`Category: ${m[f]}.`;
+  }else{
+    const p=[];
+    if(w.length)p.push(`WEAK (60% priority): ${w.join(', ')}`);
+    if(u.length)p.push(`NEW to introduce: ${u.slice(0,3).join(', ')}`);
+    if(!p.length)p.push('Mix all categories evenly.');
+    focus=p.join('\n');
+  }
+  return `One German A2 flashcard for Ryan — Indonesian, Global Growth Manager at Delivery Hero, Schöneberg Berlin. Needs German for daily life, work, German bureaucracy.
+
+${focus}
+${av.length?`Avoid: ${av.join(', ')}.`:''}
+
+Direction: ${dir==='de-en'?'German front, English back':'English front, German back'}.
+Rules: A2 only. Nouns need article. Examples: Berlin/work/immigration context, under 12 words. Grammar: real sentence showing pattern.
+topic: match from: ${CURRICULUM.join(', ')}
+
+Return ONLY valid JSON (no markdown):
+{"cat":"everyday|work|admin|grammar","dir":"${dir}","de":"...","en":"...","article":"","topic":"...","ex_de":"...","ex_en":"..."}`;
+}
+
+// ─── API — calls our Netlify proxy, not Anthropic directly ───────────────────
+async function fetchCard(f){
+  const r=await fetch('/api/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:buildPrompt(f)}]})
+  });
+  if(!r.ok) throw new Error(`${r.status}`);
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||'API error');
+  return JSON.parse((d.content.find(b=>b.type==='text')?.text||'').replace(/```json|```/g,'').trim());
+}
+
+// ─── DISPLAY ──────────────────────────────────────────────────────────────────
+const CL={everyday:'everyday',work:'work & office',admin:'admin & forms',grammar:'grammar'};
+const CD={everyday:'dot-everyday',work:'dot-work',admin:'dot-admin',grammar:'dot-grammar'};
+
+function showLoading(){
+  document.getElementById('loading-front').classList.remove('hidden');
+  document.getElementById('front-content').classList.add('hidden');
+  document.getElementById('tap-hint').style.opacity='0';
+  document.getElementById('btn-flip').disabled=true;
+  document.getElementById('btn-flip').textContent='Loading…';
+  document.getElementById('error-wrap').innerHTML='';
+}
+
+function showCard(c){
+  card=c; flipped=false;
+  document.getElementById('card-inner').classList.remove('flipped');
+  const isDE=c.dir==='de-en';
+  document.getElementById('cat-tag').textContent     =CL[c.cat]||c.cat;
+  document.getElementById('dir-front').textContent   =isDE?'DE':'EN';
+  document.getElementById('front-article').textContent=isDE?(c.article||''):'';
+  document.getElementById('front-word').textContent  =isDE?c.de:c.en;
+  document.getElementById('front-ex').textContent    =isDE?c.ex_de:c.ex_en;
+  document.getElementById('cat-tag-back').textContent=CL[c.cat]||c.cat;
+  document.getElementById('dir-back').textContent    =isDE?'EN':'DE';
+  document.getElementById('back-word').textContent   =isDE?c.en:c.de;
+  document.getElementById('back-ex').textContent     =isDE?c.ex_en:c.ex_de;
+  document.getElementById('cat-dot').className       ='cat-dot '+(CD[c.cat]||'');
+  document.getElementById('loading-front').classList.add('hidden');
+  document.getElementById('front-content').classList.remove('hidden');
+  document.getElementById('front-content').style.display='flex';
+  document.getElementById('tap-hint').style.opacity='';
+  document.getElementById('btn-flip').disabled=false;
+  document.getElementById('btn-flip').textContent='↩ Flip';
+  document.getElementById('ctrl-pre').classList.remove('hidden');
+  document.getElementById('ctrl-post').classList.add('hidden');
+  if(c.topic){
+    recent.push(c.topic); if(recent.length>12)recent.shift();
+    if(!seenThisSession.includes(c.topic))seenThisSession.push(c.topic);
+    if(!S.globalHistory.includes(c.topic)){S.globalHistory.push(c.topic);persist();}
+  }
+  document.getElementById('prog-label').textContent=`Card ${st.seen+1} · Day ${S.sessionN}`;
+  if(!tRunning&&tSecs===SECS)startTimer();
+}
+
+function showErr(msg){
+  document.getElementById('error-wrap').innerHTML=`<div class="error-card">⚠ ${msg} — tap Retry.</div>`;
+  document.getElementById('loading-front').classList.add('hidden');
+  document.getElementById('btn-flip').disabled=false;
+  document.getElementById('btn-flip').textContent='↩ Retry';
+}
+
+async function next(){
+  showLoading();
+  try{
+    const c=nextP?await nextP:await fetchCard(filter);
+    showCard(c);
+    nextP=fetchCard(filter);
+  }catch(e){console.error(e);showErr('Could not load card. Check connection.');nextP=null;}
+}
+
+// ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+function flipCard(){
+  if(!card||flipped)return;
+  flipped=true;
+  document.getElementById('card-inner').classList.add('flipped');
+  document.getElementById('ctrl-pre').classList.add('hidden');
+  document.getElementById('ctrl-post').classList.remove('hidden');
+}
+
+function rate(res){
+  if(!card)return;
+  const t=card.topic;
+  if(t){if(!S.weakness[t])S.weakness[t]={good:0,again:0};res==='again'?S.weakness[t].again++:S.weakness[t].good++;persist();}
+  st.seen++;
+  if(res==='good'||res==='easy'){st.good++;st.streak++;if(st.streak>best)best=st.streak;}
+  else{st.again++;st.streak=0;}
+  updateStats();renderFocus();next();
+}
+
+function setFilter(f){
+  filter=f;nextP=null;
+  document.querySelectorAll('.filter-btn').forEach(b=>{b.className='filter-btn';if(b.dataset.cat===f)b.classList.add('on-'+f);});
+  next();
+}
+
+// ─── END SESSION ──────────────────────────────────────────────────────────────
+function endSession(){
+  const last=S.sessionLog.length?S.sessionLog[S.sessionLog.length-1].date:null;
+  S.sessionLog.push({date:TODAY,seen:st.seen,good:st.good,again:st.again});
+  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  if(!last||last===yesterday)S.dayStreak++;else if(last!==TODAY)S.dayStreak=1;
+  S.sessionN++;persist();
+  const pct=st.seen>0?Math.round((st.good/st.seen)*100):0;
+  document.getElementById('ov-seen').textContent=st.seen;
+  document.getElementById('ov-pct').textContent=st.seen>0?pct+'%':'—';
+  document.getElementById('ov-streak').textContent=best;
+  document.getElementById('ov-sub').textContent=`${st.seen} cards · Day ${S.dayStreak} streak${S.dayStreak>1?' 🔥':''}`;
+  document.getElementById('ov-tomorrow').innerHTML=getTomorrowPlan().map(p=>`<li>${p}</li>`).join('');
+  document.getElementById('session-overlay').classList.add('visible');
+}
+
+function startNewSession(){
+  document.getElementById('session-overlay').classList.remove('visible');
+  st.seen=st.good=st.easy=st.again=st.streak=0;best=0;
+  tSecs=SECS;tRunning=tPaused=false;clearInterval(tInterval);tInterval=null;
+  recent.length=seenThisSession.length=0;nextP=null;
+  updateTimer();updateStats();renderFocus();
+  document.getElementById('session-pill').textContent=`A2 · Day ${S.sessionN}`;
+  document.getElementById('streak-badge').textContent=S.dayStreak>1?`${S.dayStreak} day streak 🔥`:'';
+  next();
+}
+
+function updateStats(){
+  document.getElementById('s-seen').textContent=st.seen;
+  document.getElementById('s-good').textContent=st.good;
+  document.getElementById('s-again').textContent=st.again;
+  document.getElementById('s-streak').textContent=st.streak;
+}
+function renderFocus(){
+  const w=getWeak().slice(0,2),u=getUnseen().slice(0,2);
+  document.getElementById('focus-bar').innerHTML=
+    w.map(t=>`<span class="focus-chip chip-weak">⚡ ${t}</span>`).join('')+
+    u.map(t=>`<span class="focus-chip chip-new">★ ${t}</span>`).join('');
+}
+
+// ─── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if((e.key===' '||e.key==='Enter')&&!flipped){e.preventDefault();flipCard();}
+  if(flipped){if(e.key==='1')rate('again');if(e.key==='2')rate('good');if(e.key==='3')rate('easy');}
+  if(e.key==='p'||e.key==='P')togglePause();
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+document.getElementById('session-pill').textContent=`A2 · Day ${S.sessionN}`;
+document.getElementById('streak-badge').textContent=S.dayStreak>1?`${S.dayStreak} day streak 🔥`:'';
+updateTimer();renderFocus();next();
+</script>
+</body>
+</html>
