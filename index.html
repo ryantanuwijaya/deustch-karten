@@ -334,6 +334,7 @@ async function fetchCard(f){
   let raw=(d.content.find(b=>b.type==='text')?.text||'').replace(/```json|```/g,'').trim();
   const s=raw.indexOf('{');if(s>0)raw=raw.slice(s);
   const e=raw.lastIndexOf('}');if(e>=0)raw=raw.slice(0,e+1);
+  raw=raw.replace(/,\s*([}\]])/g,'$1').replace(/([^\\])\n/g,'$1 ').replace(/([^\\])\r/g,'$1 ');
   try{return JSON.parse(raw);}catch(_){return JSON.parse(raw.replace(/[\x00-\x1F\x7F]/g,' '));}
 }
 
