@@ -282,46 +282,51 @@ function updateTimer(){
 }
 
 // ─── SESSION STATE ────────────────────────────────────────────────────────────
-let filter='all',card=null,flipped=false,nextP=null;
+let filter='all',card=null,flipped=false;
 const recent=[],seenThisSession=[];
 const st={seen:0,good:0,easy:0,again:0,streak:0};
 let best=0;
 const TODAY=new Date().toISOString().slice(0,10);
 
 // ─── PROMPT ───────────────────────────────────────────────────────────────────
+// ── DAILY LIMIT ───────────────────────────────────────────────────────────────
+const DAILY_LIMIT=60;
+function checkLimit(){
+  const today=new Date().toISOString().slice(0,10);
+  const k='dk_calls_'+today;
+  const n=parseInt(localStorage.getItem(k)||'0');
+  if(n>=DAILY_LIMIT)return false;
+  localStorage.setItem(k,String(n+1));
+  return true;
+}
+
 function buildPrompt(f){
-  const w=getWeak(),u=getUnseen(),av=recent.slice(-6);
+  const w=getWeak(),u=getUns(),av=recent.slice(-6);
   const dir=Math.random()>.5?'de-en':'en-de';
   let focus;
   if(f!=='all'){
-    const m={everyday:'everyday vocab — Berlin life, transport, food, home',work:'work & office — Delivery Hero, meetings, tasks, email',admin:'bureaucracy & admin — Amt, residence permit, Anmeldung, banking',grammar:'A2 grammar — modal verbs, subordinate clauses, cases, prepositions'};
+    const m={everyday:'everyday vocab — daily life, transport, food, home, shopping',work:'work & office German — meetings, tasks, emails, colleagues',admin:'German bureaucracy & admin — Amt, forms, residence permit, banking',grammar:'A2 grammar — modal verbs, subordinate clauses, cases, prepositions'};
     focus=`Category: ${m[f]}.`;
   }else{
     const p=[];
-    if(w.length)p.push(`WEAK (60% priority): ${w.join(', ')}`);
-    if(u.length)p.push(`NEW to introduce: ${u.slice(0,3).join(', ')}`);
-    if(!p.length)p.push('Mix all categories evenly.');
-    focus=p.join('\n');
+    if(w.length)p.push(`Reinforce (60%): ${w.join(', ')}`);
+    if(u.length)p.push(`Introduce next: ${u.slice(0,3).join(', ')}`);
+    if(!p.length)p.push('Mix all categories.');
+    focus=p.join(' ');
   }
-  return `One German A2 flashcard for Ryan — Indonesian, Global Growth Manager at Delivery Hero, Schöneberg Berlin. Needs German for daily life, work, German bureaucracy.
-
-${focus}
-${av.length?`Avoid: ${av.join(', ')}.`:''}
-
+  return `One German A2 flashcard. ${focus}${av.length?' Avoid: '+av.join(', ')+'.':''}
 Direction: ${dir==='de-en'?'German front, English back':'English front, German back'}.
-Rules: A2 only. Nouns need article. Examples: Berlin/work/immigration context, under 12 words. Grammar: real sentence showing pattern.
+A2 level. Nouns need article. Example under 10 words.
 topic: match from: ${CURRICULUM.join(', ')}
-
-Return ONLY valid JSON (no markdown):
-{"cat":"everyday|work|admin|grammar","dir":"${dir}","de":"...","en":"...","article":"","topic":"...","ex_de":"...","ex_en":"..."}`;
+Return ONLY JSON: {"cat":"everyday|work|admin|grammar","dir":"${dir}","de":"...","en":"...","article":"","topic":"...","ex_de":"...","ex_en":"..."}`;
 }
-
 // ─── API — calls our Netlify proxy, not Anthropic directly ───────────────────
 async function fetchCard(f){
+  if(!checkLimit()){throw new Error('Daily limit reached ('+DAILY_LIMIT+' cards). Come back tomorrow!');}
   const r=await fetch('/api/chat',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:buildPrompt(f)}]})
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:buildPrompt(f)}]})
   });
   if(!r.ok) throw new Error(`${r.status}`);
   const d=await r.json();
@@ -383,9 +388,8 @@ function showErr(msg){
 async function next(){
   showLoading();
   try{
-    const c=nextP?await nextP:await fetchCard(filter);
+    const c=await fetchCard(filter);
     showCard(c);
-    nextP=fetchCard(filter);
   }catch(e){console.error(e);showErr('Could not load card. Check connection.');nextP=null;}
 }
 
@@ -409,7 +413,7 @@ function rate(res){
 }
 
 function setFilter(f){
-  filter=f;nextP=null;
+  filter=f;
   document.querySelectorAll('.filter-btn').forEach(b=>{b.className='filter-btn';if(b.dataset.cat===f)b.classList.add('on-'+f);});
   next();
 }
@@ -434,7 +438,7 @@ function startNewSession(){
   document.getElementById('session-overlay').classList.remove('visible');
   st.seen=st.good=st.easy=st.again=st.streak=0;best=0;
   tSecs=SECS;tRunning=tPaused=false;clearInterval(tInterval);tInterval=null;
-  recent.length=seenThisSession.length=0;nextP=null;
+  recent.length=seenThisSession.length=0;
   updateTimer();updateStats();renderFocus();
   document.getElementById('session-pill').textContent=`A2 · Day ${S.sessionN}`;
   document.getElementById('streak-badge').textContent=S.dayStreak>1?`${S.dayStreak} day streak 🔥`:'';
